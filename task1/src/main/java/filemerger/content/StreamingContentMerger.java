@@ -6,6 +6,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 
+/**
+ * Потоковая реализация слияния содержимого файлов.
+ *
+ * - Подходит для любого количества и размера файлов
+ * - Может быть медленнее на маленьких файлах из-за накладных расходов
+ */
 public class StreamingContentMerger implements ContentMerger {
     @Override
     public void merge(List<String> files, String rootPath, String outputPath) {

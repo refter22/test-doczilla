@@ -6,6 +6,11 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * In-memory реализация слияния содержимого файлов.
+ *
+ * - Может потреблять много памяти при большом количестве/размере файлов
+ */
 public class InMemoryContentMerger implements ContentMerger {
     @Override
     public void merge(List<String> sortedPaths, String rootPath, String outputPath) {

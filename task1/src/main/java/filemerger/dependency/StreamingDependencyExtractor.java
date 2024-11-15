@@ -8,6 +8,12 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Потоковая реализация извлечения зависимостей.
+ *
+ * - Подходит для файлов любого размера
+ * - Может быть медленнее на маленьких файлах из-за накладных расходов
+ */
 public class StreamingDependencyExtractor implements DependencyExtractor {
     private static final Pattern REQUIRE_PATTERN = Pattern.compile("require '([^']*)'");
 
