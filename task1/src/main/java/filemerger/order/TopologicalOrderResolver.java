@@ -1,80 +1,97 @@
 package filemerger.order;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-
 import filemerger.exceptions.CyclicDependencyException;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
+/**
+ * Реализация сортировки зависимостей с помощью топологической сортировки.
+ * Использует алгоритм Кана с дополнительной проверкой на циклы.
+ */
 public class TopologicalOrderResolver implements OrderResolver {
-    @Override
-    public List<String> resolve(String[][] dependencies) {
-        Map<String, Set<String>> graph = new HashMap<>();
-        Map<String, Integer> inDegree = new HashMap<>();
-        Set<String> allNodes = new HashSet<>();
+    private static class DependencyGraph {
+        private final Map<String, Set<String>> edges = new HashMap<>();
+        private final Map<String, Integer> inDegree = new HashMap<>();
+        private final Set<String> allNodes = new HashSet<>();
 
-        for (String[] dep : dependencies) {
-            String dependent = dep[0];
-            String dependency = dep[1];
-            graph.computeIfAbsent(dependency, k -> new HashSet<>()).add(dependent);
-            graph.putIfAbsent(dependent, new HashSet<>());
+        void addDependency(String dependent, String dependency) {
+            edges.computeIfAbsent(dependency, k -> new HashSet<>()).add(dependent);
+            edges.putIfAbsent(dependent, new HashSet<>());
             inDegree.merge(dependent, 1, Integer::sum);
             inDegree.putIfAbsent(dependency, 0);
-            allNodes.add(dependent);
-            allNodes.add(dependency);
+            allNodes.addAll(List.of(dependent, dependency));
         }
 
-        Set<String> visited = new HashSet<>();
-        Set<String> recursionStack = new HashSet<>();
-
-        for (String node : allNodes) {
-            if (!visited.contains(node)) {
-                List<String> cycle = findCycle(node, graph, visited, recursionStack);
-                if (!cycle.isEmpty()) {
-                    throw new CyclicDependencyException(
-                        "Found cyclic dependency: " + String.join(" -> ", cycle)
-                    );
-                }
-            }
+        Set<String> getNeighbors(String node) {
+            return edges.getOrDefault(node, Collections.emptySet());
         }
 
-        List<String> result = new ArrayList<>();
-        Set<String> processed = new HashSet<>();
+        Set<String> getAllNodes() {
+            return allNodes;
+        }
 
-        while (!processed.containsAll(allNodes)) {
-            TreeSet<String> available = new TreeSet<>();
+        boolean hasUnprocessedNodes(Set<String> processed) {
+            return !processed.containsAll(allNodes);
+        }
 
-            for (String node : allNodes) {
-                if (!processed.contains(node) && inDegree.get(node) == 0) {
-                    available.add(node);
-                }
-            }
+        TreeSet<String> getNodesWithoutDependencies(Set<String> processed) {
+            return allNodes.stream()
+                .filter(node -> !processed.contains(node))
+                .filter(node -> inDegree.get(node) == 0)
+                .collect(Collectors.toCollection(TreeSet::new));
+        }
 
-            if (available.isEmpty()) {
+        void removeDependency(String node, String dependent) {
+            inDegree.merge(dependent, -1, Integer::sum);
+        }
+
+        void processAvailableNodes(Set<String> processed, List<String> result) {
+            TreeSet<String> available = getNodesWithoutDependencies(processed);
+            if (available.isEmpty() && hasUnprocessedNodes(processed)) {
                 throw new CyclicDependencyException("Found cyclic dependency");
             }
 
-            for (String node : available) {
+            available.forEach(node -> {
                 result.add(node);
                 processed.add(node);
-
-                for (String neighbor : graph.get(node)) {
-                    inDegree.merge(neighbor, -1, Integer::sum);
-                }
-            }
+                getNeighbors(node).forEach(neighbor -> removeDependency(node, neighbor));
+            });
         }
+    }
 
-        return result;
+    @Override
+    public List<String> resolve(String[][] dependencies) {
+        DependencyGraph graph = buildGraph(dependencies);
+        checkForCycles(graph);
+        return sortTopologically(graph);
+    }
+
+    private DependencyGraph buildGraph(String[][] dependencies) {
+        DependencyGraph graph = new DependencyGraph();
+        Stream.of(dependencies)
+            .forEach(dep -> graph.addDependency(dep[0], dep[1]));
+        return graph;
+    }
+
+    private void checkForCycles(DependencyGraph graph) {
+        Set<String> visited = new HashSet<>();
+        Set<String> recursionStack = new HashSet<>();
+
+        graph.getAllNodes().stream()
+            .filter(node -> !visited.contains(node))
+            .forEach(node -> {
+                List<String> cycle = findCycle(node, graph, visited, recursionStack);
+                if (!cycle.isEmpty()) {
+                    String path = String.join(" -> ", cycle);
+                    throw new CyclicDependencyException("Found cyclic dependency: " + path);
+                }
+            });
     }
 
     private List<String> findCycle(
         String node,
-        Map<String, Set<String>> graph,
+        DependencyGraph graph,
         Set<String> visited,
         Set<String> recursionStack
     ) {
@@ -89,18 +106,43 @@ public class TopologicalOrderResolver implements OrderResolver {
         visited.add(node);
         recursionStack.add(node);
 
-        for (String neighbor : graph.get(node)) {
-            List<String> cycle = findCycle(neighbor, graph, visited, recursionStack);
-            if (!cycle.isEmpty()) {
-                List<String> result = new ArrayList<>(cycle);
-                if (!cycle.get(0).equals(node)) {
-                    result.add(node);
-                }
-                return result;
-            }
+        try {
+            return findCycleInNeighbors(node, graph, visited, recursionStack);
+        } finally {
+            recursionStack.remove(node);
+        }
+    }
+
+    private List<String> findCycleInNeighbors(
+        String node,
+        DependencyGraph graph,
+        Set<String> visited,
+        Set<String> recursionStack
+    ) {
+        return graph.getNeighbors(node).stream()
+            .map(neighbor -> findCycle(neighbor, graph, visited, recursionStack))
+            .filter(cycle -> !cycle.isEmpty())
+            .map(cycle -> addNodeToCycle(node, cycle))
+            .findFirst()
+            .orElse(Collections.emptyList());
+    }
+
+    private List<String> addNodeToCycle(String node, List<String> cycle) {
+        if (cycle.get(0).equals(node)) {
+            return cycle;
+        }
+        return Stream.concat(cycle.stream(), Stream.of(node))
+            .collect(Collectors.toList());
+    }
+
+    private List<String> sortTopologically(DependencyGraph graph) {
+        List<String> result = new ArrayList<>();
+        Set<String> processed = new HashSet<>();
+
+        while (graph.hasUnprocessedNodes(processed)) {
+            graph.processAvailableNodes(processed, result);
         }
 
-        recursionStack.remove(node);
-        return Collections.emptyList();
+        return result;
     }
 }

@@ -1,6 +1,7 @@
 package filemerger.order;
 
 import java.util.List;
+import filemerger.exceptions.CyclicDependencyException;
 
 public interface OrderResolver {
     /**
