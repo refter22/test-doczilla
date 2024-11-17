@@ -10,34 +10,35 @@ class StudentDtoTest {
     void shouldConvertFromDomain() {
         // given
         Student student = new Student(
-            1L,
-            "Иван",
-            "Иванов",
-            "Иванович",
-            LocalDate.of(2000, 1, 1),
-            "Группа 1"
-        );
+                1L,
+                "Иван",
+                "Иванов",
+                "Иванович",
+                LocalDate.of(2000, 1, 1),
+                "Группа 1");
 
         // when
         StudentDto dto = StudentDto.fromDomain(student);
 
         // then
-        assertEquals(1L, dto.id());
-        assertEquals("Иван", dto.firstName());
-        assertEquals("2000-01-01", dto.birthDate());
+        assertEquals(student.getId(), dto.id());
+        assertEquals(student.getFirstName(), dto.firstName());
+        assertEquals(student.getLastName(), dto.lastName());
+        assertEquals(student.getMiddleName(), dto.middleName());
+        assertEquals(student.getBirthDate().toString(), dto.birthDate());
+        assertEquals(student.getGroup(), dto.group());
     }
 
     @Test
     void shouldConvertToDomain() {
         // given
         StudentDto dto = new StudentDto(
-            1L,
-            "Иван",
-            "Иванов",
-            "Иванович",
-            "2000-01-01",
-            "Группа 1"
-        );
+                1L,
+                "Иван",
+                "Иванов",
+                "Иванович",
+                "2000-01-01",
+                "Группа 1");
 
         // when
         Student student = dto.toDomain();

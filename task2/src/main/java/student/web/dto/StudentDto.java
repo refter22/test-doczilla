@@ -2,6 +2,7 @@ package student.web.dto;
 
 import student.domain.Student;
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
 public record StudentDto(
         Long id,
@@ -21,12 +22,23 @@ public record StudentDto(
     }
 
     public Student toDomain() {
-        return new Student(
-                id,
-                firstName,
-                lastName,
-                middleName,
-                LocalDate.parse(birthDate),
-                group);
+        if (firstName == null || firstName.isBlank() ||
+                lastName == null || lastName.isBlank() ||
+                birthDate == null || birthDate.isBlank() ||
+                group == null || group.isBlank()) {
+            throw new IllegalArgumentException("Отсутствуют обязательные поля");
+        }
+
+        try {
+            return new Student(
+                    id,
+                    firstName,
+                    lastName,
+                    middleName,
+                    LocalDate.parse(birthDate),
+                    group);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Некорректный формат даты");
+        }
     }
 }

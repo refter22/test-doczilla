@@ -1,96 +1,102 @@
 package student.repository;
 
 import student.domain.Student;
+
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-public class SqliteStudentRepository implements StudentRepository, AutoCloseable {
+public class SqliteStudentRepository implements StudentRepository {
 
     private final Connection connection;
 
     public SqliteStudentRepository(String dbPath) {
         try {
+            Class.forName("org.sqlite.JDBC");
             this.connection = DriverManager.getConnection("jdbc:sqlite:" + dbPath);
-            createTableIfNeeded();
+            this.connection.setAutoCommit(true);
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("SQLite драйвер не найден", e);
         } catch (SQLException e) {
-            throw new RuntimeException("Не удалось подключиться к БД", e);
-        }
-    }
-
-    private void createTableIfNeeded() {
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute("""
-                        CREATE TABLE IF NOT EXISTS students (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            first_name TEXT NOT NULL,
-                            last_name TEXT NOT NULL,
-                            middle_name TEXT,
-                            birth_date TEXT NOT NULL,
-                            group_name TEXT NOT NULL
-                        )
-                    """);
-        } catch (SQLException e) {
-            throw new RuntimeException("Не удалось создать таблицу", e);
+            throw new RuntimeException("Не удалось подключиться к БД: " + dbPath, e);
         }
     }
 
     @Override
     public Student save(Student student) {
-        try {
-            if (student.getId() == null) {
-                PreparedStatement insertStmt = connection.prepareStatement("""
-                            INSERT INTO students (first_name, last_name, middle_name, birth_date, group_name)
-                            VALUES (?, ?, ?, ?, ?)
-                        """);
+        if (student.getId() == null) {
+            try (PreparedStatement insertStmt = connection.prepareStatement("""
+                    INSERT INTO students (first_name, last_name, middle_name, birth_date, group_name)
+                    VALUES (?, ?, ?, ?, ?)
+                    """)) {
 
-                insertStmt.setString(1, student.getFirstName());
-                insertStmt.setString(2, student.getLastName());
-                insertStmt.setString(3, student.getMiddleName());
-                insertStmt.setString(4, student.getBirthDate().toString());
-                insertStmt.setString(5, student.getGroup());
+                connection.setAutoCommit(false);
 
-                insertStmt.executeUpdate();
+                try {
+                    insertStmt.setString(1, student.getFirstName());
+                    insertStmt.setString(2, student.getLastName());
+                    insertStmt.setString(3, student.getMiddleName());
+                    insertStmt.setString(4, student.getBirthDate().toString());
+                    insertStmt.setString(5, student.getGroup());
 
-                ResultSet rs = connection.createStatement().executeQuery(
-                        "SELECT last_insert_rowid()");
+                    insertStmt.executeUpdate();
 
-                if (rs.next()) {
-                    return new Student(
-                            rs.getLong(1),
-                            student.getFirstName(),
-                            student.getLastName(),
-                            student.getMiddleName(),
-                            student.getBirthDate(),
-                            student.getGroup());
+                    try (ResultSet rs = connection.createStatement()
+                            .executeQuery("SELECT last_insert_rowid()")) {
+                        if (rs.next()) {
+                            Student savedStudent = new Student(
+                                    rs.getLong(1),
+                                    student.getFirstName(),
+                                    student.getLastName(),
+                                    student.getMiddleName(),
+                                    student.getBirthDate(),
+                                    student.getGroup());
+
+                            connection.commit();
+                            return savedStudent;
+                        }
+                    }
+
+                    connection.rollback();
+                    throw new RuntimeException("Не удалось получить ID сохраненного студента");
+
+                } catch (Exception e) {
+                    connection.rollback();
+                    if (e instanceof SQLException && e.getMessage().contains("UNIQUE")) {
+                        throw new IllegalArgumentException("Студент с такими данными уже существует", e);
+                    }
+                    throw new RuntimeException("Не удалось сохранить студента", e);
+                } finally {
+                    connection.setAutoCommit(true);
                 }
+            } catch (SQLException e) {
+                throw new RuntimeException("Ошибка при работе с БД", e);
             }
-            return student;
-        } catch (SQLException e) {
-            throw new RuntimeException("Не удалось сохранить студента", e);
         }
+        return student;
     }
 
     @Override
     public Optional<Student> findById(Long id) {
-        try {
-            PreparedStatement stmt = connection.prepareStatement(
-                    "SELECT * FROM students WHERE id = ?");
+        try (PreparedStatement stmt = connection.prepareStatement(
+                "SELECT * FROM students WHERE id = ?")) {
+
             stmt.setLong(1, id);
 
-            ResultSet rs = stmt.executeQuery();
-            if (rs.next()) {
-                return Optional.of(new Student(
-                        rs.getLong("id"),
-                        rs.getString("first_name"),
-                        rs.getString("last_name"),
-                        rs.getString("middle_name"),
-                        LocalDate.parse(rs.getString("birth_date")),
-                        rs.getString("group_name")));
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return Optional.of(new Student(
+                            rs.getLong("id"),
+                            rs.getString("first_name"),
+                            rs.getString("last_name"),
+                            rs.getString("middle_name"),
+                            LocalDate.parse(rs.getString("birth_date")),
+                            rs.getString("group_name")));
+                }
+                return Optional.empty();
             }
-            return Optional.empty();
 
         } catch (SQLException e) {
             throw new RuntimeException("Не удалось найти студента", e);
@@ -99,11 +105,10 @@ public class SqliteStudentRepository implements StudentRepository, AutoCloseable
 
     @Override
     public List<Student> findAll() {
-        try {
-            List<Student> students = new ArrayList<>();
-            ResultSet rs = connection.createStatement().executeQuery(
-                    "SELECT * FROM students");
+        try (Statement stmt = connection.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT * FROM students")) {
 
+            List<Student> students = new ArrayList<>();
             while (rs.next()) {
                 students.add(new Student(
                         rs.getLong("id"),
@@ -122,21 +127,40 @@ public class SqliteStudentRepository implements StudentRepository, AutoCloseable
 
     @Override
     public void deleteById(Long id) {
-        try {
-            PreparedStatement stmt = connection.prepareStatement(
-                    "DELETE FROM students WHERE id = ?");
-            stmt.setLong(1, id);
-            stmt.executeUpdate();
+        try (PreparedStatement stmt = connection.prepareStatement(
+                "DELETE FROM students WHERE id = ?")) {
+
+            connection.setAutoCommit(false);
+            try {
+                stmt.setLong(1, id);
+                int rowsAffected = stmt.executeUpdate();
+
+                if (rowsAffected == 0) {
+                    connection.rollback();
+                    throw new IllegalArgumentException("Студент с ID " + id + " не найден");
+                }
+
+                connection.commit();
+            } catch (Exception e) {
+                connection.rollback();
+                throw new RuntimeException("Не удалось удалить студента", e);
+            } finally {
+                connection.setAutoCommit(true);
+            }
 
         } catch (SQLException e) {
-            throw new RuntimeException("Не удалось удалить студента", e);
+            throw new RuntimeException("Ошибка при работе с БД", e);
         }
     }
 
     @Override
-    public void close() throws Exception {
-        if (connection != null && !connection.isClosed()) {
-            connection.close();
+    public void close() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 }
