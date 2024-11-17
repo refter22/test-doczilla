@@ -3,6 +3,7 @@
 /bin
 !src/**/build/
 *.db
+logs/
 
 # Ignore Gradle GUI config
 gradle-app.setting
