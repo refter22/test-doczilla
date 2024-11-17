@@ -1,0 +1,15 @@
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    gap: 1rem;
+
+    width: min-content;
+    background-color: #fff;
+}
+
+.sidebar__filter-button {
+    width: 100%;
+    padding: 0.4rem;
+    background-color: var(--gray-500);
+}

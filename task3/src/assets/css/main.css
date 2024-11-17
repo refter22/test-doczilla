@@ -1,0 +1,35 @@
+@import './variable.css';
+@import './reset.css';
+
+@import '../../components/search/Search.css';
+@import '../../components/header/Header.css';
+@import '../../components/sidebar/Sidebar.css';
+@import '../../components/calendar/Calendar.css';
+@import '../../components/tasksList/TasksList.css';
+
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--gray-100);
+    min-height: 100vh;
+}
+
+#app {
+    display: flex;
+    flex-direction: column;
+    min-height: 100%;
+    height: 100%;
+}
+
+main {
+    display: flex;
+    height: 100%;
+}
+
+content {
+    width: 100%;
+}
