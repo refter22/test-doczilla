@@ -6,6 +6,7 @@
 @import '../../components/sidebar/Sidebar.css';
 @import '../../components/calendar/Calendar.css';
 @import '../../components/tasksList/TasksList.css';
+@import '../../components/modal/TaskModal.css';
 
 html, body {
     height: 100%;

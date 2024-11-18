@@ -3,6 +3,7 @@ export class Search {
         this.parent = parent;
         this.searchIconPath = searchIconPath;
         this.onSearch = null;
+        this.onResultClick = null;
         this.searchTimeout = null;
         this.init();
     }
@@ -109,8 +110,8 @@ export class Search {
             item.className = 'search__dropdown-item';
             item.textContent = result.name;
             item.addEventListener('click', () => {
-                if (this.onResultSelect) {
-                    this.onResultSelect(result);
+                if (this.onResultClick) {
+                    this.onResultClick(result);
                 }
             });
             this.resultsContainer.appendChild(item);
@@ -123,5 +124,9 @@ export class Search {
 
     getElement() {
         return this.searchElement;
+    }
+
+    setOnResultClick(callback) {
+        this.onResultClick = callback;
     }
 }

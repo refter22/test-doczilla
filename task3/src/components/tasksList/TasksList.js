@@ -6,6 +6,7 @@ export class TasksList {
         this.page = 1;
         this.limit = 5;
         this.onPageChange = null;
+        this.onTaskClick = null;
         this.init();
     }
 
@@ -57,6 +58,10 @@ export class TasksList {
 
     setOnPageChange(callback) {
         this.onPageChange = callback;
+    }
+
+    setOnTaskClick(callback) {
+        this.onTaskClick = callback;
     }
 
     renderPagination() {
@@ -133,6 +138,14 @@ export class TasksList {
 
             taskElement.append(content, checkbox, time);
             this.tasksContainer.appendChild(taskElement);
+
+            taskElement.addEventListener('click', (e) => {
+                if (e.target !== checkbox) {
+                    if (this.onTaskClick) {
+                        this.onTaskClick(task);
+                    }
+                }
+            });
         });
     }
 }
