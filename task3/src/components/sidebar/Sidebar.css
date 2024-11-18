@@ -11,5 +11,24 @@
 .sidebar__filter-button {
     width: 100%;
     padding: 0.4rem;
-    background-color: var(--gray-500);
+    background-color: var(--gray-200);
+    border: none;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    color: var(--gray-700);
+}
+
+.sidebar__filter-button:hover {
+    background-color: var(--gray-300);
+}
+
+.sidebar__filter-button--active {
+    background-color: var(--gray-700);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar__filter-button--active:hover {
+    background-color: var(--gray-800);
 }

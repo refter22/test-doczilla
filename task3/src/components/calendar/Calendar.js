@@ -7,6 +7,7 @@ export class Calendar {
         this.calendar = null;
         this.titleElement = null;
         this.gridElement = null;
+        this.onDateRangeSelect = null;
         this.init();
     }
 
@@ -120,7 +121,13 @@ export class Calendar {
         return this.currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
     }
 
+    setOnDateRangeSelect(callback) {
+        this.onDateRangeSelect = callback;
+    }
+
     selectDate(date) {
+        console.log('Calendar: date selected', date);
+
         const isSameMonth = (date1, date2) => {
             return date1.getMonth() === date2.getMonth() &&
                    date1.getFullYear() === date2.getFullYear();
@@ -147,6 +154,29 @@ export class Calendar {
             this.primaryDate = date;
         }
 
+        console.log('Calendar: current state', {
+            primaryDate: this.primaryDate,
+            secondaryDate: this.secondaryDate
+        });
+
+        if (this.onDateRangeSelect) {
+            if (!this.primaryDate && !this.secondaryDate) {
+                this.onDateRangeSelect(null, null);
+            } else if (this.primaryDate && this.secondaryDate) {
+                if (this.primaryDate > this.secondaryDate) {
+                    this.onDateRangeSelect(this.secondaryDate, this.primaryDate);
+                } else {
+                    this.onDateRangeSelect(this.primaryDate, this.secondaryDate);
+                }
+            } else if (this.primaryDate) {
+                this.onDateRangeSelect(this.primaryDate, this.primaryDate);
+            }
+        }
+
+        this.updateGrid();
+    }
+
+    updateGrid() {
         while (this.gridElement.firstChild) {
             this.gridElement.removeChild(this.gridElement.firstChild);
         }
@@ -160,5 +190,11 @@ export class Calendar {
         });
 
         this.renderDays(this.gridElement);
+    }
+
+    resetDates() {
+        this.primaryDate = null;
+        this.secondaryDate = null;
+        this.updateGrid();
     }
 }
