@@ -6,7 +6,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Потоковая реализация извлечения зависимостей.
@@ -14,9 +13,7 @@ import java.util.regex.Pattern;
  * - Подходит для файлов любого размера
  * - Может быть медленнее на маленьких файлах из-за накладных расходов
  */
-public class StreamingDependencyExtractor implements DependencyExtractor {
-    private static final Pattern REQUIRE_PATTERN = Pattern.compile("require '([^']*)'");
-
+public class StreamingDependencyExtractor extends AbstractDependencyExtractor {
     @Override
     public List<String> extractDependencies(String filePath, String rootPath) {
         List<String> dependencies = new ArrayList<>();

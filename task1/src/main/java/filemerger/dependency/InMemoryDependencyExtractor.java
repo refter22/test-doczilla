@@ -6,9 +6,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-public class InMemoryDependencyExtractor implements DependencyExtractor {
+public class InMemoryDependencyExtractor extends AbstractDependencyExtractor {
     @Override
     public List<String> extractDependencies(String filePath, String rootPath) {
         try {
@@ -16,8 +15,7 @@ public class InMemoryDependencyExtractor implements DependencyExtractor {
             String content = Files.readString(fullPath);
             List<String> dependencies = new ArrayList<>();
 
-            Pattern pattern = Pattern.compile("require '([^']+)'");
-            Matcher matcher = pattern.matcher(content);
+            Matcher matcher = REQUIRE_PATTERN.matcher(content);
 
             while (matcher.find()) {
                 dependencies.add(matcher.group(1));
